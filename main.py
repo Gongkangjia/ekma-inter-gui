@@ -22,7 +22,7 @@ class GUI():
     # 设置窗口
     def set_init_window(self):
         self.main.title("快速评估模型v0.1")
-        w, h = 600, 700
+        w, h = 600, 640
         sw = self.main.winfo_screenwidth()
         sh = self.main.winfo_screenheight()
         x = (sw-w) // 2
@@ -61,19 +61,19 @@ class GUI():
 
         # 按钮
         self.compute_button = Button(
-            self.main, text="计算", bg="lightblue", command=self.compute)
-        self.compute_button.grid(row=3, column=0, sticky=NS)
+            self.main, text="计算绘图", bg="lightblue", command=self.compute,height=2)
+        self.compute_button.grid(row=3, column=1, rowspan=2)
 
         self.img_label = Label(self.main, text="平均MDA8", height=2)
-        self.img_label.grid(row=4, column=0, sticky=NSEW)
+        self.img_label.grid(row=5, column=0, sticky=NSEW)
 
         self.result_data_Text = Text(self.main, width=30, height=1)  # 处理结果展示
-        self.result_data_Text.grid(row=4, column=1, sticky=EW)
+        self.result_data_Text.grid(row=5, column=1, sticky=EW)
 
-        # 按钮
-        self.plot_button = Button(
-            self.main, text="绘图", bg="lightblue", command=self.plot)
-        self.plot_button.grid(row=5, column=0, sticky=NS)
+        # # 按钮
+        # self.plot_button = Button(
+        #     self.main, text="绘图", bg="lightblue", command=self.plot)
+        # self.plot_button.grid(row=5, column=0, sticky=NS)
 
         self.ekma_label = Label(self.main, text="EKMA", height=2)
         self.ekma_label.grid(row=6, column=0, rowspan=3, sticky=NSEW)
@@ -87,13 +87,13 @@ class GUI():
     # 功能函数
 
     def NOX_change(self, e):
-        self.write_log_to_Text(f"NOX比例为=>{self.NOX_scale.get()}")
+        self.write_log_to_Text(f"NOX比例为{self.NOX_scale.get()}")
 
     def VOC_change(self, e):
-        self.write_log_to_Text(f"VOC比例为=>{self.VOC_scale.get()}")
+        self.write_log_to_Text(f"VOC比例为{self.VOC_scale.get()}")
 
     def reset_mat(self, e):
-        self.write_log_to_Text(f"选择的城市为=>{self.sel_city.get()}")
+        self.write_log_to_Text(f"选择的城市为{self.sel_city.get()}")
         self.mat = None
 
     def get_city_dict(self):
@@ -112,7 +112,7 @@ class GUI():
         lat = np.loadtxt("data/lat.txt")
 
         city = self.city_dict[self.sel_city.get()]
-        self.write_log_to_Text(f"城市经纬度为=>LON:{city['LON']},LAT:{city['LAT']}")
+        self.write_log_to_Text(f"城市经纬度为LON:{city['LON']},LAT:{city['LAT']}")
         r2 = (lat - city['LAT'])**2 + (lon - city['LON'])**2
         return np.unravel_index(r2.argmin(), r2.shape)
 
@@ -135,8 +135,8 @@ class GUI():
     def compute(self):
         self.load_mat()
 
-        self.write_log_to_Text(f"NOx比例为=>{self.NOX_scale.get()}")
-        self.write_log_to_Text(f"VOX比例为=>{self.VOC_scale.get()}")
+        self.write_log_to_Text(f"NOx比例为{self.NOX_scale.get()}")
+        self.write_log_to_Text(f"VOX比例为{self.VOC_scale.get()}")
 
         interpolator = RegularGridInterpolator(
             np.array((self.NOX, self.VOC)), self.mat)
@@ -144,15 +144,16 @@ class GUI():
         res = interpolator(
             np.array([self.NOX_scale.get(), self.VOC_scale.get()]))
 
-        self.write_log_to_Text(f"计算结果为=>{res:.4f} ug/m3")
+        self.write_log_to_Text(f"计算结果为{res:.4f} ug/m3")
         self.result_data_Text.delete(1.0, END)
         self.result_data_Text.insert(1.0, f"{res:.4f} ug/m3")
+        self.plot()
 
     # 获取当前时间
 
     def get_current_time(self):
-        current_time = time.strftime(
-            '%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        # current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        current_time = time.strftime('%H:%M:%S', time.localtime(time.time()))
         return current_time
 
     def plot(self):
@@ -165,22 +166,23 @@ class GUI():
         fig = plt.figure(figsize=(4, 3))
         ax = fig.add_subplot(111)
 
-        X, Y = np.meshgrid(self.NOX, self.VOC,)
-        ct = ax.contour(X, Y, self.mat)
+        X, Y = np.meshgrid(self.VOC,self.NOX,)
+        ct = ax.contour(X,Y, self.mat)
         # plt.colorbar(ct)
-        ax.set_xlabel("NOx")
-        ax.set_ylabel("VOC")
+        ax.set_xlabel("VOC")
+        ax.set_ylabel("NOx")
 
-        ax.scatter(nox,voc,marker="o", edgecolors="red", c=None)
+        ax.scatter(voc,nox,marker="o", edgecolors="red", c=None)
+
         ax.clabel(ct, fontsize=10, colors='k', fmt="%.0f")
         plt.savefig(".ekma.png", dpi=200, bbox_inches='tight')
-        self.write_log_to_Text(f"绘图完成,加载中")
+        self.write_log_to_Text(f"绘图完成")
 
         photo = Image.open(".ekma.png")  # file：t图片路径
-        v = photo.resize((400, 300), Image.ANTIALIAS)
+        v = photo.resize((280, 240), Image.ANTIALIAS)
         photo = ImageTk.PhotoImage(v)
-        imgLabel = Label(self.main, image=photo, width=400,
-                         height=300)  # 把图片整合到标签类中
+        imgLabel = Label(self.main, image=photo, width=280,
+                         height=240)  # 把图片整合到标签类中
         imgLabel.img = photo
         imgLabel.grid(row=6, column=1, rowspan=2)  # 自动对齐
 
