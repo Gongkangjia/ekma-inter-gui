@@ -22,7 +22,7 @@ class GUI():
     # 设置窗口
     def set_init_window(self):
         self.main.title("快速评估模型v0.2")
-        w, h = 600, 800
+        w, h = 560, 880
         sw = self.main.winfo_screenwidth()
         sh = self.main.winfo_screenheight()
         x = (sw-w) // 2
@@ -131,7 +131,6 @@ class GUI():
             EKMA_MAT[index] = case_mat[i, j]
 
         self.mat = EKMA_MAT
-        print(self.mat)
 
     def compute(self):
         self.load_mat()
@@ -207,9 +206,8 @@ class GUI():
 
         
         for index, element in np.ndenumerate(data):
-            res = interpolator(np.array([1-nox_cut[index[0]],1-voc_cut[index[1]]]))
-            data[index] = (self.mat[4,4]-res)/self.mat[4,4]*100
-        print(data)
+            res = interpolator(np.array([1-nox_cut[index[1]],1-voc_cut[index[0]]]))
+            data[index] = (res-self.mat[4,4])/self.mat[4,4]*100
         
         fig = plt.figure(figsize=(4, 3))
         ax = fig.add_subplot(111)
@@ -220,8 +218,9 @@ class GUI():
         ax.plot(nox_cut*100,data[4,:],label="VOCs with cut by 40%")
         ax.plot(nox_cut*100,data[5,:],label="VOCs with cut by 50%")
         ax.set_xlim(0,50)
+        # ax.invert_yaxis()
         ax.set_xlabel("NOx cut percentage/%")
-        ax.set_ylabel("Net O3 increment percentage/%")
+        ax.set_ylabel("O3 increment percentage/%")
 
         ax.legend(frameon=False,ncol=3,loc="lower center",bbox_to_anchor=(0.4,1.02),fontsize="xx-small")
         plt.savefig(".co-emitted.png", dpi=200, bbox_inches='tight')
@@ -236,18 +235,6 @@ class GUI():
         imgLabel.img = photo
         imgLabel.grid(row=8, column=1, rowspan=2)  # 自动对齐
         return
-        X, Y = np.meshgrid(self.VOC,self.NOX,)
-        ct = ax.contour(X,Y, self.mat)
-        # plt.colorbar(ct)
-        ax.set_xlabel("VOC")
-        ax.set_ylabel("NOx")
-
-        ax.scatter(voc,nox,marker="o", edgecolors="red", c=None)
-
-        ax.clabel(ct, fontsize=10, colors='k', fmt="%.0f")
-        
-        
-
 
 
     # 日志动态打印
