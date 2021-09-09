@@ -21,8 +21,8 @@ class GUI():
 
     # 设置窗口
     def set_init_window(self):
-        self.main.title("快速评估模型v0.1")
-        w, h = 600, 640
+        self.main.title("快速评估模型v0.2")
+        w, h = 600, 800
         sw = self.main.winfo_screenwidth()
         sh = self.main.winfo_screenheight()
         x = (sw-w) // 2
@@ -70,19 +70,19 @@ class GUI():
         self.result_data_Text = Text(self.main, width=30, height=1)  # 处理结果展示
         self.result_data_Text.grid(row=5, column=1, sticky=EW)
 
-        # # 按钮
-        # self.plot_button = Button(
-        #     self.main, text="绘图", bg="lightblue", command=self.plot)
-        # self.plot_button.grid(row=5, column=0, sticky=NS)
+
+
+        self.ekma_label = Label(self.main, text="EKMA", height=2)
+        self.ekma_label.grid(row=6, column=0, rowspan=3, sticky=NSEW)
 
         self.ekma_label = Label(self.main, text="EKMA", height=2)
         self.ekma_label.grid(row=6, column=0, rowspan=3, sticky=NSEW)
 
         self.log_label = Label(self.main, text="日志", height=2)
-        self.log_label.grid(row=8, column=0, rowspan=2, sticky=NSEW)
+        self.log_label.grid(row=10, column=0, rowspan=2, sticky=NSEW)
 
         self.log_data_Text = Text(self.main, width=40, height=10)  # 日志框
-        self.log_data_Text.grid(row=8, column=1, rowspan=2, sticky=NSEW)
+        self.log_data_Text.grid(row=10, column=1, rowspan=2, sticky=NSEW)
 
     # 功能函数
 
@@ -131,6 +131,7 @@ class GUI():
             EKMA_MAT[index] = case_mat[i, j]
 
         self.mat = EKMA_MAT
+        print(self.mat)
 
     def compute(self):
         self.load_mat()
@@ -146,8 +147,11 @@ class GUI():
 
         self.write_log_to_Text(f"计算结果为{res:.4f} ug/m3")
         self.result_data_Text.delete(1.0, END)
-        self.result_data_Text.insert(1.0, f"{res:.4f} ug/m3")
-        self.plot()
+        decrease = self.mat[4,4]-res
+        decrease_percent = (decrease/self.mat[4,4])*100
+        self.result_data_Text.insert(1.0, f"{res:.3f} ug/m3,下降{decrease:.3f} ug/m3({decrease_percent:.2f}%)")
+        self.plot_ekma()
+        self.plot_line()
 
     # 获取当前时间
 
@@ -156,7 +160,7 @@ class GUI():
         current_time = time.strftime('%H:%M:%S', time.localtime(time.time()))
         return current_time
 
-    def plot(self):
+    def plot_ekma(self):
         self.load_mat()
         nox = self.NOX_scale.get()
         voc = self.VOC_scale.get()
@@ -176,6 +180,7 @@ class GUI():
 
         ax.clabel(ct, fontsize=10, colors='k', fmt="%.0f")
         plt.savefig(".ekma.png", dpi=200, bbox_inches='tight')
+        plt.close()
         self.write_log_to_Text(f"绘图完成")
 
         photo = Image.open(".ekma.png")  # file：t图片路径
@@ -185,6 +190,65 @@ class GUI():
                          height=240)  # 把图片整合到标签类中
         imgLabel.img = photo
         imgLabel.grid(row=6, column=1, rowspan=2)  # 自动对齐
+
+
+    def plot_line(self):
+        self.load_mat()
+
+        self.write_log_to_Text(f"正在绘制折线图")
+
+        self.write_log_to_Text(f"正在计算折线图数据")
+
+        data = np.zeros((6,6))
+        voc_cut = np.array((0,0.1,0.2,0.3,0.4,0.5))
+        nox_cut = np.array((0,0.1,0.2,0.3,0.4,0.5))
+
+        interpolator = RegularGridInterpolator(np.array((self.NOX, self.VOC)), self.mat)
+
+        
+        for index, element in np.ndenumerate(data):
+            res = interpolator(np.array([1-nox_cut[index[0]],1-voc_cut[index[1]]]))
+            data[index] = (self.mat[4,4]-res)/self.mat[4,4]*100
+        print(data)
+        
+        fig = plt.figure(figsize=(4, 3))
+        ax = fig.add_subplot(111)
+        ax.plot(nox_cut*100,data[0,:],label="VOCs with no cut")
+        ax.plot(nox_cut*100,data[1,:],label="VOCs with cut by 10%")
+        ax.plot(nox_cut*100,data[2,:],label="VOCs with cut by 20%")
+        ax.plot(nox_cut*100,data[3,:],label="VOCs with cut by 30%")
+        ax.plot(nox_cut*100,data[4,:],label="VOCs with cut by 40%")
+        ax.plot(nox_cut*100,data[5,:],label="VOCs with cut by 50%")
+        ax.set_xlim(0,50)
+        ax.set_xlabel("NOx cut percentage/%")
+        ax.set_ylabel("Net O3 increment percentage/%")
+
+        ax.legend(frameon=False,ncol=3,loc="lower center",bbox_to_anchor=(0.4,1.02),fontsize="xx-small")
+        plt.savefig(".co-emitted.png", dpi=200, bbox_inches='tight')
+        plt.close()
+        self.write_log_to_Text(f"绘图完成")
+
+        photo = Image.open(".co-emitted.png")  # file：t图片路径
+        v = photo.resize((280, 240), Image.ANTIALIAS)
+        photo = ImageTk.PhotoImage(v)
+        imgLabel = Label(self.main, image=photo, width=280,
+                         height=240)  # 把图片整合到标签类中
+        imgLabel.img = photo
+        imgLabel.grid(row=8, column=1, rowspan=2)  # 自动对齐
+        return
+        X, Y = np.meshgrid(self.VOC,self.NOX,)
+        ct = ax.contour(X,Y, self.mat)
+        # plt.colorbar(ct)
+        ax.set_xlabel("VOC")
+        ax.set_ylabel("NOx")
+
+        ax.scatter(voc,nox,marker="o", edgecolors="red", c=None)
+
+        ax.clabel(ct, fontsize=10, colors='k', fmt="%.0f")
+        
+        
+
+
 
     # 日志动态打印
     def write_log_to_Text(self, logmsg):
